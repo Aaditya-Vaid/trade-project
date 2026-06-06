@@ -303,12 +303,20 @@ The dashboard must include a fake-money simulation mode so users can practice in
 
 ## 11. Suggested Technical Architecture
 
+### Technical Stack
+
+- **Backend:** FastAPI for REST APIs, websocket/SSE streaming endpoints, service orchestration, request validation, authentication integration, and background task coordination.
+- **Database:** PostgreSQL as the primary relational database for users, watchlists, alerts, entitlements, simulation accounts, simulated orders, simulated positions, configuration, audit logs, and normalized intraday records where appropriate.
+- **Frontend:** React with TypeScript, built with Vite for a fast single-page application development workflow and production bundling.
+- **Styling:** Tailwind CSS for responsive dashboard layouts, dense trading-terminal UI components, theme tokens, and consistent dark/light mode styling.
+
 ### Frontend
 
-- Single-page application using React, Next.js, Vue, or Angular.
+- Single-page application using React, TypeScript, Vite, and Tailwind CSS.
 - Charting library with candlestick, indicators, overlays, and responsive layouts.
-- Websocket/SSE client for streaming 10-second updates.
-- State management for watchlists, preferences, alerts, and signal snapshots.
+- Websocket/SSE client for streaming 10-second updates from FastAPI endpoints.
+- State management for watchlists, preferences, alerts, signal snapshots, and simulation state.
+- Reusable Tailwind-based components for watchlist tables, chart panels, alerts, risk cards, and simulation views.
 
 ### Backend Services
 
@@ -345,8 +353,8 @@ The dashboard must include a fake-money simulation mode so users can practice in
 
 ### Data Storage
 
-- Time-series store for ticks, quotes, candles, and indicator snapshots.
-- Relational database for users, watchlists, alerts, entitlements, simulation accounts, simulated orders, simulated positions, and configuration.
+- PostgreSQL as the primary database for users, watchlists, alerts, entitlements, simulation accounts, simulated orders, simulated positions, configuration, audit logs, and relational application data.
+- PostgreSQL time-series tables or extensions may be used for ticks, quotes, candles, and indicator snapshots in the MVP; a dedicated time-series store can be evaluated later if scale requires it.
 - Cache layer for latest market snapshots and dashboard fanout.
 - Object storage for logs and offline analytics exports if needed.
 
@@ -537,7 +545,7 @@ The dashboard must include a fake-money simulation mode so users can practice in
 - Should broker login be required for entitlement validation?
 - What minimum liquidity thresholds should be used by default?
 - What default fake-money balance, slippage model, and fee assumptions should be used for training?
-- What is the preferred charting library and frontend framework?
+- What is the preferred charting library for React-based intraday candlestick and indicator views?
 
 ## 18. Acceptance Criteria
 
