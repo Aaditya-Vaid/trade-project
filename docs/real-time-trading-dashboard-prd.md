@@ -19,11 +19,11 @@ The product is intended for active intraday traders who need a single screen for
 
 ## 3. Non-Goals
 
-- The product will not place trades automatically in the initial release.
+- The product will not place trades automatically in the initial release; fake-money simulation and paper trading are allowed for training only.
 - The product will not guarantee profit or provide personalized financial advice.
 - The product will not scrape NSE website endpoints or redistribute exchange data outside licensed usage.
 - The product will not support high-frequency trading or sub-second execution workflows.
-- The initial release will not include portfolio accounting, tax reporting, or long-term investment analytics.
+- The initial release will not include tax reporting or long-term investment analytics.
 
 ## 4. Target Users
 
@@ -203,7 +203,42 @@ An avoid signal should be shown when:
 - Calculate suggested quantity using entry, stop loss, and risk per trade.
 - Show risk/reward before presenting a signal as actionable.
 - Block actionable wording when risk/reward or liquidity rules fail.
-- Show daily signal count, win/loss tracking for paper trades, and avoided-trade reasons.
+- Show daily signal count, win/loss tracking for simulated trades, and avoided-trade reasons.
+
+### 8.7 Fake-Money Simulation and Training Mode
+
+The dashboard must include a fake-money simulation mode so users can practice intraday trading decisions against live market conditions without placing real orders or risking real capital.
+
+#### Simulation Account
+
+- Every user receives a configurable virtual cash balance, with a default of INR 10,00,000.
+- Users can reset simulation capital, but every reset must be captured in simulation history.
+- Simulated positions must support long and short intraday practice where legally and technically appropriate for the selected instrument.
+- Simulated orders must never be sent to a broker, exchange, or order-management system.
+- The UI must clearly label all simulated balances, orders, positions, P&L, and trade history as fake money.
+
+#### Simulated Order Types
+
+- Market order simulation using the latest licensed real-time quote.
+- Limit order simulation triggered when real-time traded price reaches the configured limit.
+- Stop-loss and target order simulation based on real-time price updates.
+- Bracket-style practice orders with entry, stop loss, and target.
+- Optional slippage and brokerage/fees configuration for more realistic training.
+
+#### Real-Time Data Testing Behavior
+
+- The simulation engine must evaluate pending simulated orders against the same licensed real-time data stream that powers the dashboard.
+- The simulation engine must run at the dashboard refresh cadence of 10 seconds or faster when the data source supports faster events.
+- Simulated fills must store source price, source timestamp, received timestamp, simulated fill timestamp, slippage assumption, and fill reason.
+- If data is stale for more than 15 seconds during market hours, the simulation engine must pause new simulated fills and display a stale-data warning.
+- Users must be able to replay the simulated trade timeline alongside the real-time chart and signal history.
+
+#### Training Analytics
+
+- Show simulated realized P&L, unrealized P&L, win rate, average win, average loss, expectancy, drawdown, risk/reward achieved, and rule-adherence score.
+- Compare simulated trades against generated suggestions to show whether the user followed, ignored, or overrode the suggestion.
+- Provide an end-of-day training summary with best trades, worst trades, missed setups, avoidable mistakes, and risk-rule violations.
+- Allow exporting the user's own simulated trading journal where data-licensing rules permit.
 
 ## 9. Functional Requirements
 
@@ -221,8 +256,10 @@ An avoid signal should be shown when:
 | FR-010 | The system shall support in-app alerts. | P1 |
 | FR-011 | The system shall provide option-chain metrics including OI, OI change, IV, PCR, max pain, and Greeks when licensed data supports them. | P1 |
 | FR-012 | Admins shall be able to configure data-source credentials and entitlement rules. | P1 |
-| FR-013 | Users shall be able to paper-track a signal outcome. | P2 |
-| FR-014 | Users shall be able to export non-real-time personal analytics where licensing permits. | P2 |
+| FR-013 | Users shall be able to trade with fake money in simulation mode using the real-time market-data stream. | P0 |
+| FR-014 | The simulation engine shall pause simulated fills when market data is stale for more than 15 seconds during market hours. | P0 |
+| FR-015 | Users shall be able to review simulated positions, orders, trade history, P&L, and training analytics. | P1 |
+| FR-016 | Users shall be able to export non-real-time personal simulation analytics where licensing permits. | P2 |
 
 ## 10. Non-Functional Requirements
 
@@ -254,6 +291,15 @@ An avoid signal should be shown when:
 - Include regulatory and exchange-data disclaimers in onboarding and footer.
 - Respect NSE/vendor redistribution rules.
 - Retain signal and data-access logs according to legal and business requirements.
+
+### Real-Time Simulation Testing Requirements
+
+- Test fake-money simulation against a licensed real-time NSE data feed during live market hours before production release.
+- Validate that simulated market orders use the latest available quote at the time of the simulated action, including source and received timestamps.
+- Validate limit, stop-loss, and target simulated orders against real-time price movements across at least 25 liquid NSE symbols and 5 low-liquidity symbols.
+- Validate that simulated fills pause when the data freshness threshold exceeds 15 seconds and resume only after fresh data is received.
+- Compare simulated fills against real-time candles and quote snapshots to ensure fill decisions are reproducible from stored audit data.
+- Run an end-to-end training session test for a full NSE trading day, including watchlist updates, generated suggestions, simulated orders, P&L changes, alerts, and end-of-day training summary.
 
 ## 11. Suggested Technical Architecture
 
@@ -291,10 +337,16 @@ An avoid signal should be shown when:
    - Sends in-app notifications.
    - Stores alert history.
 
+6. **Simulation and Training Service**
+   - Maintains fake-money balances, simulated orders, positions, and P&L.
+   - Evaluates simulated orders against licensed real-time quotes and candles.
+   - Applies configurable slippage, fees, stale-data pauses, and risk-rule checks.
+   - Produces training analytics and end-of-day simulation summaries.
+
 ### Data Storage
 
 - Time-series store for ticks, quotes, candles, and indicator snapshots.
-- Relational database for users, watchlists, alerts, entitlements, and configuration.
+- Relational database for users, watchlists, alerts, entitlements, simulation accounts, simulated orders, simulated positions, and configuration.
 - Cache layer for latest market snapshots and dashboard fanout.
 - Object storage for logs and offline analytics exports if needed.
 
@@ -368,6 +420,54 @@ An avoid signal should be shown when:
 - expiresAt
 - calculatedAt
 
+### SimulationAccount
+
+- userId
+- virtualCashBalance
+- startingVirtualCapital
+- realizedPnl
+- unrealizedPnl
+- maxDrawdown
+- resetCount
+- lastResetAt
+- createdAt
+- updatedAt
+
+### SimulatedOrder
+
+- orderId
+- userId
+- symbol
+- side
+- orderType
+- quantity
+- limitPrice
+- stopPrice
+- status
+- sourcePrice
+- sourceTimestamp
+- simulatedFillPrice
+- simulatedFillTimestamp
+- slippageApplied
+- feesApplied
+- fillReason
+
+### SimulatedPosition
+
+- positionId
+- userId
+- symbol
+- side
+- quantity
+- averageEntryPrice
+- currentPrice
+- realizedPnl
+- unrealizedPnl
+- stopLoss
+- target
+- openedAt
+- closedAt
+
 ## 13. UX Requirements
 
 - Use a dense trading-terminal layout with dark and light themes.
@@ -378,6 +478,7 @@ An avoid signal should be shown when:
 - Display countdown until next scheduled 10-second refresh when polling mode is active.
 - Make every suggestion expandable to show its calculation rationale.
 - Provide a prominent disclaimer near signal panels.
+- Separate real trading terminology from fake-money simulation terminology with persistent "Simulation Mode" labels and distinct visual treatment.
 
 ## 14. MVP Scope
 
@@ -390,6 +491,7 @@ An avoid signal should be shown when:
 - LTP, OHLC, volume, VWAP, percentage change, and data timestamp.
 - Candlestick chart with VWAP, EMA, RSI, MACD, and volume.
 - Rule-based buy/sell/hold/watch/avoid suggestions.
+- Fake-money simulation account with simulated orders, positions, P&L, and training history tested against real-time data.
 - Risk panel with entry, stop loss, target, risk/reward, and suggested quantity.
 - In-app alerts.
 - Data-source admin configuration.
@@ -399,7 +501,7 @@ An avoid signal should be shown when:
 
 - Automated order placement.
 - Social trading.
-- Backtesting UI.
+- Historical backtesting UI beyond real-time fake-money simulation.
 - Mobile native apps.
 - Advanced machine-learning prediction models.
 - Multi-exchange support beyond NSE.
@@ -407,7 +509,7 @@ An avoid signal should be shown when:
 ## 15. Future Enhancements
 
 - Broker order placement with explicit user confirmation.
-- Paper trading and signal performance analytics.
+- Advanced paper-trading leagues, challenges, and signal performance analytics.
 - Backtesting and strategy builder.
 - Machine-learning ranking model trained on historical intraday setups.
 - Options strategy builder for spreads, straddles, and strangles.
@@ -420,7 +522,7 @@ An avoid signal should be shown when:
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
 | Unlicensed NSE data usage | Legal and operational risk | Use only licensed NSE/vendor/broker feeds and enforce entitlements. |
-| Stale data interpreted as live | Bad trading decisions | Show freshness timestamps and stale warnings; suppress actionable suggestions when stale. |
+| Stale data interpreted as live | Bad trading decisions | Show freshness timestamps and stale warnings; suppress actionable suggestions and simulated fills when stale. |
 | False-positive signals | User losses and trust loss | Use conservative risk filters, explainability, confidence scoring, and disclaimers. |
 | Data-feed outage | Dashboard unusable during market hours | Implement feed monitoring, retries, failover options, and incident banners. |
 | High update fanout cost | Poor performance at scale | Use caching, websocket channels, symbol subscriptions, and delta updates. |
@@ -434,17 +536,21 @@ An avoid signal should be shown when:
 - What is the maximum number of watchlist symbols per user?
 - Should broker login be required for entitlement validation?
 - What minimum liquidity thresholds should be used by default?
+- What default fake-money balance, slippage model, and fee assumptions should be used for training?
 - What is the preferred charting library and frontend framework?
 
 ## 18. Acceptance Criteria
 
 - During NSE market hours, subscribed symbols update visually every 10 seconds or faster.
 - A user can create a watchlist, add symbols, and see core trading metrics.
-- Stale data older than 15 seconds is clearly marked and suppresses actionable buy/sell suggestions.
+- Stale data older than 15 seconds is clearly marked and suppresses actionable buy/sell suggestions and new simulated fills.
 - Each suggestion includes entry zone, stop loss, targets, confidence, risk/reward, expiry, and explanation.
-- Risk settings affect suggested quantity and signal eligibility.
+- A user can place fake-money simulated market, limit, stop-loss, and target orders that are evaluated against real-time market data.
+- Simulated order fills, P&L, and training analytics are visible with source timestamps and clear simulation labels.
+- Risk settings affect suggested quantity, signal eligibility, and simulation warnings.
 - Admin can configure data-source credentials without code changes.
-- Audit logs capture data-source status changes and signal generation events.
+- Audit logs capture data-source status changes, signal generation events, and simulated fill decisions.
+- A full-market-session simulation test can be completed on licensed real-time data with reproducible audit records for each simulated order fill.
 
 ## 19. Reference Links
 
